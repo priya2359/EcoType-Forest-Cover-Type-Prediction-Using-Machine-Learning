@@ -1,0 +1,37 @@
+services:
+  ecotype-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+    environment:
+      - MODEL_SOURCE=local
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    networks:
+      - ecotype-net
+
+  ecotype-ui:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://ecotype-api:8000
+    depends_on:
+      ecotype-api:
+        condition: service_healthy
+    networks:
+      - ecotype-net
+
+networks:
+  ecotype-net:
+    driver: bridge

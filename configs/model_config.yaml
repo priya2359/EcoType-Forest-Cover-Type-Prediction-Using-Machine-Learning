@@ -1,0 +1,42 @@
+models:
+  random_forest:
+    n_estimators: 200
+    class_weight: balanced
+    n_jobs: -1
+    random_state: 42
+  extra_trees:
+    n_estimators: 200
+    class_weight: balanced
+    n_jobs: -1
+    random_state: 42
+  xgboost:
+    n_estimators: 300
+    max_depth: 6
+    learning_rate: 0.1
+    eval_metric: mlogloss
+    random_state: 42
+    # XGBWrapper handles label shift: Cover_Type 1-7 -> 0-6 internally
+  knn:
+    n_neighbors: 5
+    algorithm: ball_tree
+    leaf_size: 40
+    n_jobs: -1
+    # Evaluation only - NOT deployed to API
+  decision_tree:
+    max_depth: 20
+    class_weight: balanced
+    random_state: 42
+  logistic_regression:
+    max_iter: 1000
+    class_weight: balanced
+    multi_class: multinomial
+    solver: lbfgs
+    random_state: 42
+    # Baseline only - do not tune
+
+primary_metric: macro_f1
+
+mlflow:
+  experiment_name: ecotype_forest_cover
+  tracking_uri: mlruns/
+  # MLflow = tracking only; API loads joblib pkl, NOT mlruns artifact

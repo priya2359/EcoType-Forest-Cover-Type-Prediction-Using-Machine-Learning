@@ -1,0 +1,16 @@
+FROM python:3.10-slim
+WORKDIR /app
+ENV PYTHONPATH=/app
+COPY streamlit-requirements.txt .
+RUN pip install --no-cache-dir -r streamlit-requirements.txt
+COPY app/ app/
+COPY src/ src/
+COPY models/ models/
+COPY artifacts/ artifacts/
+COPY reports/ reports/
+COPY configs/ configs/
+COPY .streamlit/ .streamlit/
+RUN useradd -m appuser && chown -R appuser /app
+USER appuser
+EXPOSE 8501
+CMD ["streamlit", "run", "app/streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
