@@ -1,0 +1,31 @@
+# Environment
+/venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Data — never in git
+/data/raw/
+/data/interim/
+/data/processed/
+
+# Models — PKLs stored on HuggingFace Hub
+models/**/*.pkl
+
+# MLflow — exclude from root AND any nested location
+/mlruns/
+**/mlruns/
+
+# Reports — generated artefacts
+/reports/figures/
+/reports/optuna/
+
+# Misc
+*.db
+.coverage
+.pytest_cache/
+.vscode/
+*.egg-info/
+dist/
+build/

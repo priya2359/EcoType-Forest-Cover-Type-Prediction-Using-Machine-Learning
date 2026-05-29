@@ -1,0 +1,63 @@
+quantitative_features:
+  - Elevation
+  - Aspect_sin
+  - Aspect_cos
+  - Slope
+  - Horizontal_Distance_To_Hydrology
+  - Vertical_Distance_To_Hydrology
+  - Horizontal_Distance_To_Roadways
+  - Hillshade_9am
+  - Hillshade_Noon
+  - Hillshade_3pm
+  - Horizontal_Distance_To_Fire_Points
+
+categorical_features:
+  wilderness:
+    column: Wilderness_Area
+    encoder: OneHotEncoder
+    handle_unknown: ignore
+  soil:
+    column: Soil_Type
+    encoder: OneHotEncoder
+    handle_unknown: ignore
+
+target: Cover_Type
+target_classes: 7
+
+# Single source of truth for class names — used by API, Streamlit, and predictor
+class_map:
+  1: "Spruce/Fir"
+  2: "Lodgepole Pine"
+  3: "Ponderosa Pine"
+  4: "Cottonwood/Willow"
+  5: "Aspen"
+  6: "Douglas-fir"
+  7: "Krummholz"
+
+engineered_features:
+  Aspect_sin:
+    formula: "sin(deg2rad(Aspect))"
+    rationale: "Circular decomposition — north (0°/360°) and north-facing slopes stay adjacent"
+  Aspect_cos:
+    formula: "cos(deg2rad(Aspect))"
+    rationale: "Circular decomposition — complements Aspect_sin; raw Aspect is dropped after"
+  Hydro_Distance_Combined:
+    formula: "sqrt(H_hydro^2 + V_hydro^2)"
+    rationale: "True Euclidean distance to nearest water"
+  Hydro_Elev_interaction:
+    formula: "Elevation - Vertical_Distance_To_Hydrology"
+    rationale: "Absolute elevation of nearest water source"
+  Hillshade_mean:
+    formula: "mean(Hillshade_9am, Hillshade_Noon, Hillshade_3pm)"
+    rationale: "Average daily solar exposure proxy"
+  Elevation_Slope_interaction:
+    formula: "Elevation * Slope"
+    rationale: "High elev + steep slope predicts Krummholz (class 7)"
+  Distance_Road_Fire_Ratio:
+    formula: "H_Road / (H_Fire + 1)"
+    rationale: "Relative accessibility vs fire proximity"
+
+test_size: 0.2
+random_state: 42
+smote_threshold: 2000
+feature_importance_threshold: 0.0005

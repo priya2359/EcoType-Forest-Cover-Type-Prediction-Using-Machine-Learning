@@ -1,0 +1,14 @@
+api:
+  host: 0.0.0.0
+  port: 8000
+  title: "EcoType API"
+  version: "1.0.0"
+  timeout_seconds: 60
+  health_check_timeout: 10
+  max_retries: 3
+
+streamlit:
+  title: "EcoType — Forest Cover Classifier"
+
+# cover_type_map is NOT here — single source of truth is feature_config.yaml class_map
+# Load it with: yaml.safe_load(open("configs/feature_config.yaml"))['class_map']
