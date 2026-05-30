@@ -29,3 +29,7 @@ models/**/*.pkl
 *.egg-info/
 dist/
 build/
+
+# Generated reports — not source code
+reports/ERROR_LOG.md
+reports/**/*.log

@@ -12,3 +12,4 @@ python-multipart==0.0.9
 python-dotenv==1.0.1
 PyYAML==6.0.2
 requests==2.32.4
+slowapi==0.1.9     # rate limiting; in-memory per-process (adequate for single-worker Render)

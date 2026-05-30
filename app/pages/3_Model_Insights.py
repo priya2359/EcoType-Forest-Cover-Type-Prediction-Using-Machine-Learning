@@ -31,6 +31,7 @@ def load_csv(path: str) -> pd.DataFrame:
 # ── Model comparison table ────────────────────────────────────────────────────
 st.subheader("All Models -- Test Set Performance")
 
+# TODO: read these metrics dynamically from reports/optuna/*.csv or MLflow
 baseline_data = {
     "Model":        ["Logistic Regression", "Decision Tree", "KNN",
                      "Random Forest", "Extra Trees", "XGBoost"],

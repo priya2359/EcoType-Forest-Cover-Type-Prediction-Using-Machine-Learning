@@ -102,6 +102,27 @@ assert X_res.isnull().sum().sum() == 0, "Nulls in X_res after SMOTE"
 print("\nAll assertions passed.")
 
 # %%
+# Post-SMOTE range validation — SMOTE can extrapolate beyond valid ranges on quant features
+quant_bounds = {
+    'Hillshade_9am': (0, 255), 'Hillshade_Noon': (0, 255), 'Hillshade_3pm': (0, 255),
+    'Slope': (0, 90),
+}
+print("\nPost-SMOTE range validation:")
+for col, (lo, hi) in quant_bounds.items():
+    if col not in X_res.columns:
+        continue
+    n_oob = ((X_res[col] < lo) | (X_res[col] > hi)).sum()
+    if n_oob > 0:
+        print(f"  WARNING: {n_oob} synthetic rows have {col} outside [{lo},{hi}] -- clipping")
+        X_res[col] = X_res[col].clip(lo, hi)
+    else:
+        print(f"  {col}: OK")
+# OHE cols (Wilderness_Area_x, Soil_Type_x) will be continuous after SMOTE (e.g. 0.3, 0.7).
+# Tree models are threshold-based -- handle this correctly.
+# StandardScaler (nb06) scales these too; acceptable for RF/ET/XGB, slightly affects KNN distances.
+print("Post-SMOTE validation complete.")
+
+# %%
 # Before vs after bar chart
 pre_counts  = y_train.value_counts().sort_index()
 post_counts = y_res.value_counts().sort_index()

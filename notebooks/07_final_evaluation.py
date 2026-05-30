@@ -33,6 +33,9 @@ import pandas as pd
 import numpy as np
 import yaml
 import os
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 import mlflow
 import mlflow.sklearn
 from mlflow.tracking import MlflowClient
@@ -45,7 +48,7 @@ from src.feature_selector import load_feature_columns
 from src.preprocessing import transform_scaler
 
 # %%
-FAST_MODE = True  # Set False for final run
+FAST_MODE = False  # Always False for final evaluation
 
 with open('../configs/feature_config.yaml') as f:
     feature_config = yaml.safe_load(f)
@@ -131,6 +134,53 @@ print(f"  macro F1:    {champion_metrics['macro_f1']:.4f}")
 print(f"  accuracy:    {champion_metrics['accuracy']:.4f}")
 print(f"  weighted F1: {champion_metrics['weighted_f1']:.4f}")
 
+# %%
+# Compute predictions ONCE — reused by per-wilderness F1 and calibration curves below
+# X_test_sc is a DataFrame (created via X_test.copy() + column assignment)
+from sklearn.metrics import f1_score
+from sklearn.calibration import calibration_curve
+from pathlib import Path
+
+X_test_r = X_test.reset_index(drop=True)
+y_test_r = y_test.reset_index(drop=True)
+if hasattr(X_test_sc, 'reset_index'):
+    X_test_sc_vals = X_test_sc.reset_index(drop=True).values
+else:
+    X_test_sc_vals = np.asarray(X_test_sc)
+    assert len(X_test_sc_vals) == len(X_test_r), (
+        f"Shape mismatch: X_test_sc has {len(X_test_sc_vals)} rows, "
+        f"X_test has {len(X_test_r)} rows"
+    )
+
+y_pred_champ = champion_model.predict(X_test_sc_vals)
+proba_matrix = champion_model.predict_proba(X_test_sc_vals)
+
+# Per-wilderness-area macro F1 breakdown
+wld_cols = [c for c in X_test_r.columns if c.startswith('Wilderness_Area_')]
+if wld_cols:
+    wilderness_ids = (
+        X_test_r[wld_cols]
+        .idxmax(axis=1)
+        .str.extract(r'(\d+)$', expand=False)
+        .astype(int)
+    )
+    print("\nPer-Wilderness-Area macro F1 (champion model):")
+    for wid in [1, 2, 3, 4]:
+        mask = (wilderness_ids == wid).values
+        if mask.sum() == 0:
+            print(f"  Area {wid}: no test samples — skipped")
+            continue
+        area_f1 = f1_score(
+            y_test_r.values[mask],
+            y_pred_champ[mask],
+            average='macro',
+            zero_division=0,
+            labels=list(range(1, 8)),
+        )
+        print(f"  Area {wid}: macro F1 = {area_f1:.4f}  (n={mask.sum():,})")
+else:
+    print("Wilderness_Area OHE cols not in selected features — per-area breakdown skipped.")
+
 # %%  [markdown]
 # ## 3. Save Champion to best_model/
 
@@ -161,6 +211,50 @@ plot_confusion_matrix(
     title=f'Confusion Matrix -- {champion_name} (Final Champion)',
     save_path='../reports/figures/model/cm_champion.png',
 )
+
+# %%
+# Calibration curves — verify probability estimates are well-calibrated
+sorted_classes = sorted(class_map.items())  # [(1,"Spruce/Fir"), ...] — guaranteed order
+
+# Soft remap if model's internal class order differs from class_map (never hard assert in notebooks)
+cal_proba = proba_matrix.copy()
+if hasattr(champion_model, 'classes_'):
+    model_cls = list(champion_model.classes_)
+    expected  = [cid for cid, _ in sorted_classes]
+    if model_cls != expected:
+        print(f"WARNING: class order mismatch — model: {model_cls}, map: {expected}")
+        try:
+            col_order = [model_cls.index(cid) for cid in expected]
+            cal_proba = cal_proba[:, col_order]
+            print("  Remap successful.")
+        except ValueError as e:
+            print(f"  Remap failed ({e}) — skipping calibration curves.")
+            cal_proba = None
+
+if cal_proba is not None:
+    fig, axes = plt.subplots(2, 4, figsize=(18, 9))
+    axes = axes.flatten()
+    for i, (cls_id, cls_name) in enumerate(sorted_classes):
+        y_binary = (y_test_r.values == cls_id).astype(int)
+        if y_binary.sum() == 0 or y_binary.sum() == len(y_binary):
+            axes[i].text(0.5, 0.5, 'Insufficient data', ha='center', va='center')
+            axes[i].set_title(f"Class {cls_id}: {cls_name}", fontsize=9)
+            continue
+        fop, mpv = calibration_curve(y_binary, cal_proba[:, i], n_bins=10)
+        axes[i].plot(mpv, fop, 's-', label=cls_name)
+        axes[i].plot([0, 1], [0, 1], 'k--', label='Perfect')
+        axes[i].set_title(f"Class {cls_id}: {cls_name}", fontsize=9)
+        axes[i].set_xlabel('Mean predicted prob', fontsize=8)
+        axes[i].set_ylabel('Fraction positives', fontsize=8)
+        axes[i].legend(fontsize=7)
+    axes[-1].set_visible(False)
+    plt.suptitle(f'Calibration Curves — {champion_name}', fontsize=12)
+    plt.tight_layout()
+    cal_path = Path('../reports/figures/model/calibration_curves.png')
+    cal_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(cal_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"Calibration curves saved: {cal_path.resolve()}")
 
 # %%  [markdown]
 # ## 5. MLflow -- Log Champion + Register to Model Registry
