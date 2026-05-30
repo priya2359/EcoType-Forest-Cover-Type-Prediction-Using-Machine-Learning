@@ -1,7 +1,8 @@
 # filename: api/schemas/input_schema.py
 # purpose:  Pydantic v2 input/output schemas for the prediction API
-# version:  1.0
+# version:  2.0
 
+from typing import Optional
 from pydantic import BaseModel, Field
 
 
@@ -36,5 +37,18 @@ class CoverTypeInput(BaseModel):
 class CoverTypePrediction(BaseModel):
     cover_type_id: int
     cover_type_name: str
-    confidence: float
+    confidence: float = Field(..., ge=0.0, le=1.0)
     probabilities: dict[str, float]
+    low_confidence: bool = False
+    warning: Optional[str] = None
+    model_version: str = "unknown"  # sentinel — route overrides with MODEL_VERSION env var
+
+    model_config = {"protected_namespaces": (), "json_schema_extra": {"example": {
+        "cover_type_id": 2,
+        "cover_type_name": "Lodgepole Pine",
+        "confidence": 0.847,
+        "probabilities": {"Spruce/Fir": 0.05, "Lodgepole Pine": 0.847},
+        "low_confidence": False,
+        "warning": None,
+        "model_version": "1.0.0",
+    }}}
