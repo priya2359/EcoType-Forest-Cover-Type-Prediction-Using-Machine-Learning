@@ -35,7 +35,7 @@ jobs:
         run: |
           python -c "from api.limiter import limiter; print('limiter OK')"
           python -c "from api.main import app; print('app startup OK')"
-          python -c "import slowapi; print(f'slowapi {slowapi.__version__} OK')"
+          python -c "import importlib.metadata; v=importlib.metadata.version('slowapi'); print(f'slowapi {v} OK')"
 
       - name: Run tests
         env:
