@@ -1,8 +1,7 @@
 services:
   - type: web
     name: ecotype-api
-    runtime: python
-    pythonVersion: "3.12.0"
+    pythonVersion: "3.10.14"
     buildCommand: pip install --prefer-binary -r api-requirements.txt
     startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
     envVars:
