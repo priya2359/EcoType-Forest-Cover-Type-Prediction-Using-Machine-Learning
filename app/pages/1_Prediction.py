@@ -15,7 +15,7 @@ CLASS_COLORS = [
     "#F44336", "#00BCD4", "#795548",
 ]
 
-api_url = st.session_state.get("api_url", "http://localhost:8000")
+api_url = st.secrets["API_URL"]
 
 # ── Input form ────────────────────────────────────────────────────────────────
 with st.form("predict_form"):
