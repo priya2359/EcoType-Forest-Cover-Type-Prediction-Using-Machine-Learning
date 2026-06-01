@@ -18,8 +18,7 @@ models/**/*.pkl
 **/mlruns/
 
 # Reports — generated artefacts
-/reports/figures/
-/reports/optuna/
+/optuna/
 
 # Misc
 *.db

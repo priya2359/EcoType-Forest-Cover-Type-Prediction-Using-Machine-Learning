@@ -7,7 +7,7 @@ import streamlit as st
 
 st.set_page_config(page_title="EDA Dashboard -- EcoType", layout="wide")
 st.title("Exploratory Data Analysis")
-st.markdown("Dataset: **145,891 rows × 13 columns** — GUVI Forest Cover subset.")
+st.markdown("Dataset: **145,891 rows × 13 columns** — Forest Cover subset.")
 
 FIGURES_DIR = Path(__file__).resolve().parent.parent.parent / "reports" / "figures" / "eda"
 
