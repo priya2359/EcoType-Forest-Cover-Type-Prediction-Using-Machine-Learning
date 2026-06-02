@@ -23,7 +23,7 @@ if str(PROJECT_ROOT) not in sys.path:
 # |--------------------|-----------------|----------------|
 # | Logistic Regression| Baseline        | None           |
 # | Decision Tree      | Interpretable   | None           |
-# | KNN                | GUVI required   | None (eval only)|
+# | KNN                | Distance-based benchmark | None (eval only)|
 # | Random Forest      | Core ensemble   | Optuna 50 trials|
 # | Extra Trees        | Bonus ensemble  | Optuna 50 trials|
 # | XGBoost            | Primary candidate| Optuna 20 trials|

@@ -59,7 +59,7 @@ def main():
         print(f"\n  Dataset found: data/raw/forest_cover.csv ({size_mb:.1f} MB)")
     else:
         print("\n  WARNING: data/raw/forest_cover.csv not found.")
-        print("           Copy your GUVI dataset there before running notebooks.")
+        print("           Copy the dataset (cover_type.csv) there before running notebooks.")
 
     print("\nSetup complete. Next: pip install -r requirements.txt")
 

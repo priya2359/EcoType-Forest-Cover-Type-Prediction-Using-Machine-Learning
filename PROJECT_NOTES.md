@@ -1,9 +1,9 @@
-# EcoType — Claude Master Context
+# EcoType — Project Notes
 
 ## Project
 - Name: EcoType — Forest Cover Type Prediction
 - Type: Multi-class Classification (7 classes)
-- Dataset: 145,891 rows × 13 columns (GUVI subset)
+- Dataset: 145,891 rows × 13 columns (UCI Covertype dataset)
 - Target: Cover_Type (1-7)
 - Python: 3.10.14 (venv locally; Render uses python-3.10.14 via runtime.txt)
 
@@ -33,7 +33,6 @@
 6. FAST_MODE=False before running notebook 06 for final models
 7. Save each model immediately after training — never batch without saves
 8. Use try/except NameError for __file__ in notebooks — not __file__ directly
-9. Log ALL errors to reports/ERROR_LOG.md after every section
 
 ## Key Decisions
 - XGBWrapper handles Cover_Type 1-7 label offset (XGB expects 0-6)
@@ -86,7 +85,7 @@
 | GitHub | https://github.com/priya2359/EcoType-Forest-Cover-Type-Prediction-Using-Machine-Learning |
 
 ## How to Resume Work
-1. Read CLAUDE.md (this file) — check Progress Checklist
+1. Read PROJECT_NOTES.md (this file) — check Progress Checklist
 2. Activate venv: `.\venv\Scripts\Activate.ps1`
 3. Run notebooks from PROJECT ROOT — never from inside notebooks/:
    `python notebooks/06_model_building.py`
