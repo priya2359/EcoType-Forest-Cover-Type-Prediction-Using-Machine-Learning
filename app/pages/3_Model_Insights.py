@@ -38,7 +38,7 @@ baseline_data = {
     "Macro F1":     [0.6391, 0.8665, 0.8162, 0.9149, 0.9062, 0.9043],
     "Accuracy":     [0.6705, 0.9323, 0.9048, 0.9582, 0.9481, 0.9424],
     "Weighted F1":  [0.7039, 0.9331, 0.9033, 0.9577, 0.9472, 0.9414],
-    "Role":         ["Baseline", "Interpretable", "GUVI required",
+    "Role":         ["Baseline", "Interpretable", "Distance-based benchmark",
                      "Core ensemble", "Bonus ensemble", "Primary candidate"],
 }
 df_base = pd.DataFrame(baseline_data).sort_values("Macro F1", ascending=False).reset_index(drop=True)
