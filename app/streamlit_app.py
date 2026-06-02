@@ -16,9 +16,11 @@ st.set_page_config(
 
 def _get_api_url() -> str:
     try:
-        return st.secrets.get("API_URL", os.environ.get("API_URL", "http://localhost:8000"))
+        if "API_URL" in st.secrets:
+            return st.secrets["API_URL"]
     except Exception:
-        return os.environ.get("API_URL", "http://localhost:8000")
+        pass
+    return os.environ.get("API_URL", "https://ecotype-api.onrender.com")
 
 
 if "api_url" not in st.session_state:
@@ -43,7 +45,7 @@ st.markdown(
 
 col1, col2, col3 = st.columns(3)
 col1.metric("Models Trained", "6", "LR · DT · KNN · RF · ET · XGB")
-col2.metric("Dataset", "145,891 rows", "GUVI subset")
+col2.metric("Dataset", "145,891 rows", "Subset")
 col3.metric("Target Classes", "7", "Forest cover types")
 
 st.divider()
