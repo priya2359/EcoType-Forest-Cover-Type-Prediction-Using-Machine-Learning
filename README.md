@@ -385,4 +385,4 @@ CI runs on every push to `master` and `main` via GitHub Actions.
 
 ## Author
 
-**Priya Monisha** · [GitHub](https://github.com/priya2359)
+**Priya Neha** · [GitHub](https://github.com/priya2359)
