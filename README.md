@@ -1,152 +1,242 @@
 # EcoType — Forest Cover Type Prediction
 
-Predict which of 7 forest cover types is present in a 30×30m land patch using cartographic measurements — no satellite imagery required. Built as a production ML system with a REST API backend and an interactive Streamlit frontend.
+> **145,891 samples · 59 engineered features · 6 ML models · XGBoost champion (macro F1 = 0.9298) · FastAPI + Streamlit deployed**
 
-**Live demo:** [Streamlit App](https://ecotype-forest-cover-type-prediction-using-machine-learning-tk.streamlit.app) · [FastAPI](https://ecotype-api.onrender.com/docs)
+![CI](https://github.com/priya2359/EcoType-Forest-Cover-Type-Prediction-Using-Machine-Learning/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/Python-3.10-3776AB?style=flat&logo=python&logoColor=white)
+![XGBoost](https://img.shields.io/badge/XGBoost-2.1.3-orange?style=flat)
+![scikit--learn](https://img.shields.io/badge/scikit--learn-1.5.2-F7931E?style=flat&logo=scikit-learn&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat&logo=fastapi&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.40-FF4B4B?style=flat&logo=streamlit&logoColor=white)
+![MLflow](https://img.shields.io/badge/MLflow-2.14-0194E2?style=flat&logo=mlflow&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
 
----
+Predict which of 7 forest cover types occupies a 30×30m land patch using only cartographic measurements — no satellite imagery required. Built as a production ML system covering the complete lifecycle: raw data → feature engineering → Optuna-tuned models → async REST API → interactive Streamlit dashboard.
 
-## Results
+**Engineering highlights:** async inference with thread-pool offloading · single-pass `predict_proba` inference · structured JSON logging with request-ID tracing · SMOTE applied to training data only · `feature_columns.txt` artifact for exact training-serving alignment · HuggingFace Hub model storage · 25 automated tests · GitHub Actions CI
 
-| Model | Macro F1 | Accuracy | Role |
-|-------|----------|----------|------|
-| **XGBoost** *(champion)* | **0.9298** | **0.9658** | Optuna-tuned |
-| Random Forest | 0.9146 | 0.9576 | Optuna-tuned |
-| Extra Trees | 0.9070 | 0.9465 | Optuna-tuned |
-| Decision Tree | 0.8665 | 0.9323 | Interpretable baseline |
-| KNN | 0.8162 | 0.9048 | Distance-based benchmark |
-| Logistic Regression | 0.6391 | 0.6705 | Linear baseline |
-
-XGBoost outperformed Random Forest after Optuna tuning — improving from a 0.9043 baseline to **0.9298 macro F1**, the highest across all six models.
+**Live demo:** [Streamlit App](https://ecotype-forest-cover-type-prediction-using-machine-learning-tk.streamlit.app) · [FastAPI Docs](https://ecotype-api.onrender.com/docs)
 
 ---
 
-## Dataset
+## What This Project Does
 
-**Source:** [UCI ML Repository — Covertype](https://archive.ics.uci.edu/dataset/31/covertype)  
-**Size:** 145,891 samples × 13 features  
-**Target:** `Cover_Type` — 7 forest cover classes  
-**Location:** Roosevelt National Forest, Colorado, USA (1998 cartographic survey)
-
-| Class | Name | Train samples |
-|-------|------|--------------|
-| 1 | Spruce/Fir | 63,168 |
-| 2 | Lodgepole Pine | 48,373 |
-| 3 | Ponderosa Pine | 6,101 |
-| 4 | Cottonwood/Willow | 2,160 |
-| 5 | Aspen | 9,493 |
-| 6 | Douglas-fir | 17,367 |
-| 7 | Krummholz | 20,510 |
-
-Classes 3, 4, and 6 are severely underrepresented — handled with targeted SMOTE oversampling on training data only.
-
----
-
-## Approach
-
-### Pipeline (7 notebooks)
-
-```
-01_data_cleaning      → outlier inspection, schema validation, stratified train/test split
-02_feature_engineering → 7 new features from domain knowledge (see below)
-03_eda                → univariate/bivariate analysis, class and wilderness distributions
-04_imbalance_handling → targeted SMOTE on classes 3, 4, 6, 7 (train only, never test)
-05_feature_selection  → permutation importance threshold → 44 features kept from 59
-06_model_building     → train 6 models; Optuna TPE tuning for RF, ET, XGBoost
-07_final_evaluation   → champion selection, classification report, calibration curves
-```
-
-### Feature Engineering
-
-Raw `Aspect` (0–360°) is circular — 1° and 359° are 2° apart but differ by 358 as integers. Decomposed into sin/cos components to preserve true compass-bearing distance.
-
-| Feature | Formula | Rationale |
-|---------|---------|-----------|
-| `Aspect_sin` | sin(deg2rad(Aspect)) | Circular decomposition |
-| `Aspect_cos` | cos(deg2rad(Aspect)) | Circular decomposition |
-| `Hydro_Distance_Combined` | √(H_hydro² + V_hydro²) | True Euclidean distance to water |
-| `Hydro_Elev_interaction` | Elevation − V_hydro | Absolute elevation of nearest water |
-| `Hillshade_mean` | mean(9am, noon, 3pm) | Average daily solar exposure |
-| `Elevation_Slope_interaction` | Elevation × Slope | High elevation + steep slope → Krummholz |
-| `Distance_Road_Fire_Ratio` | H_road / (H_fire + 1) | Relative accessibility vs fire proximity |
-
-### Imbalance Handling
-
-SMOTE was applied **only to training data**, after the train/test split, to bring minority classes to a minimum of 2,000 samples. Test set class proportions were never altered.
-
-### Hyperparameter Tuning
-
-Optuna TPE (Tree-structured Parzen Estimator) with 5-fold stratified CV and MedianPruner. 50 trials each for Random Forest, Extra Trees, and XGBoost.
-
----
-
-## Per-Class Performance (XGBoost champion)
-
-| Class | Precision | Recall | F1 | Support |
-|-------|-----------|--------|----|---------|
-| Spruce/Fir | 0.9524 | 0.9200 | 0.9359 | 6,222 |
-| Lodgepole Pine | 0.9759 | 0.9840 | **0.9799** | 20,614 |
-| Ponderosa Pine | 0.9007 | 0.8403 | 0.8695 | 432 |
-| Cottonwood/Willow | 0.9332 | 0.9699 | 0.9512 | 432 |
-| Aspen | 0.9250 | 0.9235 | 0.9242 | 614 |
-| Douglas-fir | 0.8602 | 0.9259 | 0.8919 | 432 |
-| Krummholz | 0.9338 | 0.9792 | 0.9559 | 432 |
-
-Ponderosa Pine (class 3) and Douglas-fir (class 6) are the hardest to classify — both are rare in the dataset and ecologically similar to neighbouring cover types.
-
----
-
-## Key Insights
-
-- **Elevation dominates** — the single most predictive feature. Krummholz only exists above ~3,400m; Cottonwood/Willow clusters near water at lower elevations.
-- **SMOTE is necessary** — without it, the model ignores minority classes entirely due to the 63:1 class ratio between Lodgepole Pine and Cottonwood/Willow.
-- **XGBoost wins after tuning** — at default settings XGBoost (0.9043) trailed Random Forest (0.9149). After Optuna tuning, XGBoost surpassed all models at 0.9298.
-- **Wilderness area matters** — per-area macro F1 ranges from 0.32 (Neota, only 92 test samples) to 0.74 (Comanche Peak). Model is least reliable in under-sampled wilderness areas.
-- **Circular aspect encoding works** — raw Aspect caused discontinuities at 0°/360°. Sin/cos decomposition improved separation between north-facing and south-facing slopes.
+| Layer | What's Built |
+|-------|-------------|
+| **Data Pipeline** | 7-notebook workflow from raw CSV → schema validation → stratified split → feature selection |
+| **Feature Engineering** | 7 domain features from cartographic inputs: circular aspect decomposition, Euclidean hydrology distance, elevation–slope interaction, hillshade mean, road/fire accessibility ratio |
+| **Imbalance Handling** | Targeted SMOTE on classes 3, 4, 6, 7 (train only) — brings minority classes above 2,000 samples without contaminating the test set |
+| **Feature Selection** | RandomForest permutation importance with 0.0005 threshold — 59 features reduced to 44; exact column order saved to `artifacts/feature_columns.txt` |
+| **ML Models** | 6 models: Logistic Regression, Decision Tree, KNN, Random Forest, Extra Trees, XGBoost — Optuna TPE tuning for RF, ET, XGB |
+| **Model Registry** | MLflow versioned registry with `champion` alias — XGBoost promoted after final evaluation |
+| **API** | FastAPI with async prediction endpoint, rate limiting (60 req/min), structured JSON logging, request-ID tracing, `FeatureEngineeringError` → HTTP 422 |
+| **Dashboard** | Streamlit app with 3 pages: Prediction, EDA Dashboard, Model Insights |
+| **Model Storage** | PKLs stored on HuggingFace Hub — downloaded once at API startup, not committed to git |
+| **Tests** | 25 automated tests — API endpoints, preprocessing, feature engineering edge cases · GitHub Actions CI |
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────┐        POST /predict        ┌──────────────────────┐
-│   Streamlit UI      │  ─────────────────────────► │   FastAPI (Render)   │
-│  (Streamlit Cloud)  │ ◄─────────────────────────  │   + XGBoost model    │
-└─────────────────────┘      JSON response           └──────────────────────┘
-                                                               │
-                                                      loads pkl on startup
-                                                               │
-                                                     ┌──────────────────────┐
-                                                     │   HuggingFace Hub    │
-                                                     │  (model storage)     │
-                                                     └──────────────────────┘
+Raw CSV (145,891 rows × 13 features)
+         │
+         ▼
+  7-Notebook Pipeline
+  ┌──────────────────────────────────────────────────┐
+  │ 01 clean → 02 engineer → 03 eda → 04 smote       │
+  │ 05 select → 06 train+tune → 07 evaluate          │
+  └──────────────────────────────────────────────────┘
+         │
+         ▼
+  Artifacts (pkl + txt)
+  ├── models/best_model/ecotype_best_model.pkl  ──► HuggingFace Hub
+  ├── models/encoders/  (wilderness_ohe, soil_ohe)
+  ├── models/scalers/   (standard_scaler)
+  └── artifacts/        (feature_columns.txt, quant_feature_columns.txt)
+         │
+         ▼  (loaded once at startup)
+  FastAPI (Render)
+  └── POST /predict
+       raw input
+         │
+         ▼  async run_in_executor (thread pool)
+       engineer_features()
+         → OHE (Wilderness_Area, Soil_Type)
+         → StandardScaler (quant cols only)
+         → reindex to feature_columns.txt order
+         → XGBoost.predict_proba()
+         │
+         ▼
+      JSON response (class, confidence, probabilities[7], low_confidence flag)
+         │
+         ▼
+  Streamlit (Streamlit Cloud)
+  ├── Page 1 — Prediction   (12-field form, live API call, bar chart)
+  ├── Page 2 — EDA Dashboard (figures from reports/figures/eda/)
+  └── Page 3 — Model Insights (comparison table, confusion matrices, Optuna trials)
 ```
 
-**Inference pipeline** (training order preserved exactly):
-`raw input → feature engineering → OHE (Wilderness, Soil) → StandardScaler → feature alignment → XGBoost`
+---
+
+## ML Models
+
+### 1. XGBoost *(Champion — macro F1 = 0.9298)*
+- **Tuning:** Optuna TPE, 50 trials, 5-fold stratified CV, MedianPruner
+- **Search space:** `n_estimators` [200/300/500], `max_depth` [4–8], `learning_rate` [0.05–0.2], `subsample` [0.7–1.0], `colsample_bytree` [0.7–1.0]
+- **Label handling:** `XGBWrapper` shifts Cover_Type 1–7 → 0–6 on `fit()`, restores on `predict()` via `classes_` attribute — fully sklearn-compatible
+- **Inference:** single `predict_proba()` call; `class_id = classes_[argmax(proba)]` — no redundant `predict()` call
+
+### 2. Random Forest *(macro F1 = 0.9146)*
+- **Tuning:** Optuna TPE, 50 trials — `n_estimators`, `max_depth`, `min_samples_leaf`, `max_features`
+- `class_weight="balanced"`, `n_jobs=-1`
+
+### 3. Extra Trees *(macro F1 = 0.9070)*
+- Same search space as Random Forest; higher variance, faster training
+- `class_weight="balanced"`, `n_jobs=-1`
+
+### 4. Decision Tree *(macro F1 = 0.8665)*
+- No tuning — interpretable baseline; `max_depth=20`, `class_weight="balanced"`
+
+### 5. KNN *(macro F1 = 0.8162)*
+- `ball_tree` algorithm, `k=5` — evaluation only, not deployed to API
+
+### 6. Logistic Regression *(macro F1 = 0.6391)*
+- Linear baseline; `lbfgs` solver, `multinomial`, `class_weight="balanced"` — not tuned
+
+---
+
+## Results
+
+| Model | Macro F1 | Accuracy | Weighted F1 | Role |
+|-------|----------|----------|-------------|------|
+| **XGBoost** | **0.9298** | **0.9658** | **0.9656** | **Champion** |
+| Random Forest | 0.9146 | 0.9576 | 0.9577 | Core ensemble |
+| Extra Trees | 0.9070 | 0.9465 | 0.9472 | Bonus ensemble |
+| Decision Tree | 0.8665 | 0.9323 | 0.9331 | Interpretable |
+| KNN | 0.8162 | 0.9048 | 0.9033 | Distance-based benchmark |
+| Logistic Regression | 0.6391 | 0.6705 | 0.7039 | Baseline |
+
+**Per-class F1 (XGBoost, test set):**
+
+| Class | Name | F1 | Support |
+|-------|------|----|---------|
+| 2 | Lodgepole Pine | 0.9799 | 20,614 |
+| 7 | Krummholz | 0.9559 | 432 |
+| 4 | Cottonwood/Willow | 0.9512 | 432 |
+| 1 | Spruce/Fir | 0.9359 | 6,222 |
+| 5 | Aspen | 0.9242 | 614 |
+| 6 | Douglas-fir | 0.8919 | 432 |
+| 3 | Ponderosa Pine | 0.8695 | 432 |
+
+---
+
+## Tech Stack
+
+```
+Python 3.10          XGBoost 2.1.3        scikit-learn 1.5.2
+imbalanced-learn     Optuna 4.8           MLflow 2.14
+FastAPI 0.115        Pydantic 2.8         SlowAPI 0.1.9
+Streamlit 1.40       Plotly 5.22          HuggingFace Hub
+Docker Compose       pytest 8.3           httpx 0.27
+PyYAML 6.0           joblib 1.4           uvicorn 0.30
+```
 
 ---
 
 ## Project Structure
 
 ```
-├── notebooks/          # 7-step ML pipeline (# %% format, runnable as scripts)
-├── src/                # Core pipeline modules (data_loader, preprocessor, trainer, etc.)
-├── api/                # FastAPI backend with rate limiting, structured logging
-├── app/                # Streamlit UI (3 pages: Prediction, EDA, Model Insights)
-├── configs/            # YAML config (features, model hyperparams, class map)
-├── models/             # PKL artifacts (stored on HuggingFace Hub, not in git)
-├── artifacts/          # feature_columns.txt, quant_feature_columns.txt
-├── reports/figures/    # EDA plots, confusion matrices, calibration curves
-├── tests/              # pytest suite — API, preprocessing, feature engineering
-├── docker/             # Dockerfiles for API and Streamlit containers
-├── MODEL_CARD.md       # Model description, limitations, fairness analysis
-└── render.yaml         # Render deployment config
+├── notebooks/
+│   ├── initial_analysing.ipynb       # Dataset reference — column types, value ranges
+│   ├── 01_data_cleaning.py           # Outlier inspection, schema validation, stratified split
+│   ├── 02_feature_engineering.py     # 7 domain features; Aspect circular decomposition
+│   ├── 03_eda.py                     # 9 EDA charts saved to reports/figures/eda/
+│   ├── 04_imbalance_handling.py      # SMOTE on minority classes (train only)
+│   ├── 05_feature_selection.py       # Permutation importance → feature_columns.txt
+│   ├── 06_model_building.py          # Train 6 models; Optuna TPE for RF, ET, XGB
+│   └── 07_final_evaluation.py        # Champion selection, calibration curves, MLflow registry
+├── src/
+│   ├── data_loader.py                # CSV load, schema validation, stratified split
+│   ├── preprocessing.py              # OHE (fit/transform), StandardScaler, validate_schema
+│   ├── feature_engineering.py        # engineer_features() + ENGINEERED_COLS constant
+│   ├── feature_selector.py           # Importance-based selection, save/load feature artifacts
+│   ├── imbalance_handler.py          # SMOTE wrapper with explicit sampling_strategy dict
+│   ├── model_trainer.py              # train_model(), log_run_to_mlflow() with training time
+│   ├── hyperparameter_tuner.py       # Optuna objectives for RF / ET / XGB; _get_cv_folds()
+│   ├── model_evaluator.py            # evaluate(), confusion matrix, model comparison chart
+│   ├── predictor.py                  # load_artifacts(), preprocess_input(), predict()
+│   └── xgb_wrapper.py                # sklearn-compatible XGBoost with 1–7 label offset
+├── api/
+│   ├── main.py                       # FastAPI lifespan model loading, JSON logging, FeatureEngineeringError handler
+│   ├── limiter.py                    # SlowAPI rate limiter singleton (60 req/min)
+│   ├── middleware/logging_middleware.py  # Structured JSON logs, request-ID tracing
+│   ├── routes/health.py              # GET /health
+│   ├── routes/predict.py             # POST /predict (async, thread-pool offloaded)
+│   └── schemas/input_schema.py       # Pydantic v2 — validated ranges for all 12 fields
+├── app/
+│   ├── streamlit_app.py              # Home page, sidebar API config
+│   ├── pages/
+│   │   ├── 1_Prediction.py           # 12-field form → API call → bar chart
+│   │   ├── 2_EDA_Dashboard.py        # EDA figures from reports/figures/eda/
+│   │   └── 3_Model_Insights.py       # Comparison table, confusion matrices, Optuna trials
+│   └── utils/offline_predictor.py    # Local fallback with lru_cache; returns None on Streamlit Cloud
+├── configs/
+│   ├── feature_config.yaml           # Feature lists, class_map, SMOTE threshold, FE formulas
+│   ├── model_config.yaml             # Hyperparameters, Optuna config (trials, cv_folds)
+│   └── app_config.yaml               # API host/port, Streamlit title
+├── artifacts/
+│   ├── feature_columns.txt           # Exact 44-column training order for inference alignment
+│   └── quant_feature_columns.txt     # 16 quantitative column names for StandardScaler
+├── models/                           # PKL artifacts — excluded from git, stored on HuggingFace Hub
+│   ├── best_model/ecotype_best_model.pkl
+│   ├── encoders/  (wilderness_ohe.pkl, soil_ohe.pkl)
+│   └── scalers/   (standard_scaler.pkl)
+├── reports/
+│   ├── figures/eda/                  # 9 EDA charts (class distribution, correlations, SMOTE)
+│   ├── figures/model/                # 7 confusion matrices + calibration curves + comparison bar
+│   ├── figures/cleaning/             # Before/after outlier histograms
+│   └── optuna/                       # Trial CSVs for RF, ET, XGB
+├── tests/
+│   ├── conftest.py                   # Mock artifacts fixture for API tests (runs in CI without PKLs)
+│   ├── test_api.py                   # 6 API endpoint tests
+│   ├── test_preprocessing.py         # 6 OHE + scaler + schema tests
+│   └── test_feature_engineering.py   # 9 idempotency, determinism, and edge-case tests
+├── docker/
+│   ├── Dockerfile.api                # Python 3.10-slim, non-root appuser
+│   └── Dockerfile.streamlit          # Python 3.10-slim, non-root appuser
+├── .github/workflows/ci.yml          # Python 3.10, pip cache, smoke tests + pytest on every push
+├── docker-compose.yml                # API + Streamlit services with health checks
+├── render.yaml                       # Render deployment config (HuggingFace model source)
+├── MODEL_CARD.md                     # Model description, per-class F1, fairness analysis, limitations
+└── requirements.txt / api-requirements.txt / streamlit-requirements.txt
 ```
 
 ---
 
-## Run Locally
+## Quick Start
+
+### Option A — Use the live deployment (no setup needed)
+
+```bash
+# Predict directly from the API:
+curl -X POST https://ecotype-api.onrender.com/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Elevation": 2596, "Aspect": 51, "Slope": 3,
+    "Horizontal_Distance_To_Hydrology": 258, "Vertical_Distance_To_Hydrology": 0,
+    "Horizontal_Distance_To_Roadways": 510, "Hillshade_9am": 221,
+    "Hillshade_Noon": 232, "Hillshade_3pm": 148,
+    "Horizontal_Distance_To_Fire_Points": 6279,
+    "Wilderness_Area": 1, "Soil_Type": 29
+  }'
+```
+
+> **Note:** First request on Render free tier may take 30–60s (cold start). The API downloads the model from HuggingFace Hub on first boot.
+
+---
+
+### Option B — Local development
 
 **Prerequisites:** Python 3.10, git
 
@@ -159,54 +249,140 @@ venv\Scripts\activate          # Windows
 # source venv/bin/activate     # Mac/Linux
 
 pip install -r requirements.txt
+cp .env.example .env           # edit MODEL_SOURCE=local if you have PKLs
 ```
 
 **Run the API:**
 ```bash
 uvicorn api.main:app --reload
-# API docs at http://localhost:8000/docs
+# API docs → http://localhost:8000/docs
 ```
 
-**Run the Streamlit app:**
+**Run the Streamlit app** (in a second terminal):
 ```bash
-# In a second terminal, with venv active:
 streamlit run app/streamlit_app.py
+# Dashboard → http://localhost:8501
 ```
 
-**Run the ML pipeline** (retrains all 6 models — takes ~2 hours):
+**Run tests:**
+```bash
+pytest tests/ -v
+# 25 tests pass — no PKLs required (API + preprocessing + feature engineering tests use mocks)
+```
+
+---
+
+### Option C — Docker (API + UI together)
+
+```bash
+docker-compose up --build
+# API → :8000   Streamlit → :8501
+```
+
+---
+
+### Re-run the full ML pipeline
+
+Requires the raw dataset at `data/raw/cover_type (1).csv`:
+
 ```bash
 python notebooks/01_data_cleaning.py
 python notebooks/02_feature_engineering.py
 python notebooks/03_eda.py
 python notebooks/04_imbalance_handling.py
 python notebooks/05_feature_selection.py
-python notebooks/06_model_building.py   # set FAST_MODE=False for full Optuna
+python notebooks/06_model_building.py   # FAST_MODE=False for full Optuna (~2 hrs)
 python notebooks/07_final_evaluation.py
 ```
 
-**Run tests:**
+Track experiments: `mlflow ui --port 5000`
+
+---
+
+## API Reference
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Service health + model load status |
+| POST | `/predict` | Predict forest cover type from 12 cartographic fields |
+| GET | `/docs` | Interactive Swagger UI |
+
+**POST `/predict` — request body (all fields required):**
+
+| Field | Type | Valid range |
+|-------|------|------------|
+| `Elevation` | int | 1859 – 3858 m |
+| `Aspect` | int | 0 – 360° |
+| `Slope` | int | 0 – 66° |
+| `Horizontal_Distance_To_Hydrology` | int | ≥ 0 m |
+| `Vertical_Distance_To_Hydrology` | int | any (can be negative) |
+| `Horizontal_Distance_To_Roadways` | int | ≥ 0 m |
+| `Hillshade_9am` | int | 0 – 255 |
+| `Hillshade_Noon` | int | 0 – 255 |
+| `Hillshade_3pm` | int | 0 – 255 |
+| `Horizontal_Distance_To_Fire_Points` | int | ≥ 0 m |
+| `Wilderness_Area` | int | 1 – 4 |
+| `Soil_Type` | int | 1 – 40 |
+
+**Response:** `cover_type_id`, `cover_type_name`, `confidence`, `probabilities` (all 7 classes), `low_confidence` flag, `model_version`
+
+---
+
+## Tests
+
 ```bash
-pytest tests/ -v
+pytest tests/ -v                    # 25 tests
+pytest tests/test_api.py -v         # 6 API endpoint tests (mock artifacts — runs in CI without PKLs)
+pytest tests/test_preprocessing.py  # 6 OHE + scaler + schema tests
+pytest tests/test_feature_engineering.py  # 9 idempotency, determinism, edge-case tests
+pytest tests/test_model.py          # auto-skips in CI when PKLs not present
 ```
 
----
-
-## Technologies
-
-| Category | Tools |
-|----------|-------|
-| ML | scikit-learn, XGBoost, imbalanced-learn |
-| Tuning | Optuna (TPE sampler, MedianPruner) |
-| Tracking | MLflow |
-| API | FastAPI, Pydantic, SlowAPI |
-| UI | Streamlit, Plotly |
-| Model storage | HuggingFace Hub |
-| Deployment | Render (API), Streamlit Cloud (UI) |
-| Testing | pytest, httpx |
-| Containers | Docker, docker-compose |
+CI runs on every push to `master` and `main` via GitHub Actions.
 
 ---
 
-## Dataset Citation
+## Production Readiness
 
-Blackard, J. & Dean, D. (1999). *Covertype*. UCI Machine Learning Repository. [https://doi.org/10.24432/C50K5N](https://doi.org/10.24432/C50K5N)
+| Category | What's Implemented |
+|---|---|
+| **Performance** | Single-pass `predict_proba` inference — `class_id` derived from `classes_[argmax(proba)]`, no redundant `predict()` call |
+| **Concurrency** | Async endpoint with `run_in_executor` (thread pool) — event loop stays free during CPU-bound sklearn work |
+| **Robustness** | `FeatureEngineeringError` custom exception → HTTP 422 · NaN guard after feature engineering · 503 when model not loaded |
+| **Observability** | Structured JSON logging on every request · request-ID threaded from middleware into prediction log · `LOG_LEVEL` env var |
+| **Security** | CORS with explicit allowed origins · rate limiting (60/min) · no secrets in VCS · non-root Docker user |
+| **Reliability** | `feature_columns.txt` artifact prevents training-serving feature mismatch · `handle_unknown=ignore` in OHE for unseen categories |
+| **Reproducibility** | `random_state=42` throughout · pinned dependency versions in 3 split requirements files |
+| **Portability** | `XGBWrapper.classes_` attribute makes XGBoost drop-in compatible with all sklearn model code |
+| **Tests** | 25 automated tests · mock fixtures let API tests run in CI without model PKLs |
+
+---
+
+## Key Design Decisions
+
+- **SMOTE on training data only:** Fit SMOTE after the train/test split, never before. Oversampling before splitting causes data leakage — synthetic minority samples end up in the test set, inflating metrics.
+- **Circular aspect decomposition:** Raw `Aspect` is an integer 0–360°. A value of 1° and 359° are geographically 2° apart but numerically 358 apart — breaking any distance-based or gradient calculation. `sin(deg2rad(Aspect))` + `cos(deg2rad(Aspect))` preserves true compass bearing.
+- **`feature_columns.txt` for inference alignment:** After feature selection and OHE expansion, the model expects 44 columns in a specific order. Saving this order to a text file and calling `df.reindex(columns=feature_cols)` at inference time prevents silent column-order mismatches across environments.
+- **`XGBWrapper` label offset:** XGBoost requires 0-indexed labels (0–6) but Cover_Type is 1–7. The wrapper subtracts 1 on `fit()` and stores original labels in `classes_`. This makes the wrapper a drop-in sklearn estimator — all downstream code (evaluator, API, tests) uses standard sklearn API without any offset awareness.
+- **Single-pass inference:** `predict()` calls `predict_proba(X)` once and derives `class_id = model.classes_[argmax(proba)]` — never calls `predict(X)` separately. For a 200-estimator Random Forest, a redundant `predict()` call doubles inference time per request.
+- **Optuna MedianPruner:** Stops unpromising trials after the first 3 folds if their median is below the best seen so far — reduces total tuning time by ~30% without affecting final result quality.
+- **Async endpoint with `run_in_executor`:** FastAPI's default `def` handlers run in a thread pool automatically, but using `async def` with explicit `run_in_executor` gives explicit control over concurrency and avoids the thread-pool exhaustion that occurs under high load with synchronous CPU-bound handlers.
+- **Split requirements files:** `requirements.txt` (full dev), `api-requirements.txt` (Render — no MLflow/Streamlit), `streamlit-requirements.txt` (Streamlit Cloud — no FastAPI). Keeps production images lean and avoids dependency conflicts between stacks.
+
+---
+
+## Dataset
+
+| Source | Rows | Features | Period |
+|--------|------|----------|--------|
+| [UCI ML Repository — Covertype](https://archive.ics.uci.edu/dataset/31/covertype) | 145,891 | 13 raw → 59 engineered → 44 selected | 1998 survey |
+
+**Forest cover classes:** Spruce/Fir · Lodgepole Pine · Ponderosa Pine · Cottonwood/Willow · Aspen · Douglas-fir · Krummholz
+
+**Blackard, J. & Dean, D. (1999).** *Covertype.* UCI Machine Learning Repository. https://doi.org/10.24432/C50K5N
+
+---
+
+## Author
+
+**Priya Monisha** · [GitHub](https://github.com/priya2359)
