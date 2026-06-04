@@ -2,11 +2,11 @@
 
 ## Model Description
 
-- **Architecture:** Random Forest (champion; Optuna TPE-tuned, 50 trials)
+- **Architecture:** XGBoost (champion; Optuna TPE-tuned, 20 trials)
 - **Task:** 7-class multiclass classification of forest cover type from cartographic data
 - **Primary metric:** Macro F1 (equal weight across all 7 classes regardless of frequency)
-- **Baseline performance:** Macro F1 = 0.9149 | Accuracy = 0.9582 | Weighted F1 = 0.9577
-- **Test set:** 29,179 samples (stratified 20% hold-out from 145,891 total)
+- **Champion performance:** Macro F1 = 0.9298 | Accuracy = 0.9658 | Weighted F1 = 0.9656
+- **Test set:** 29,178 samples (stratified 20% hold-out from 145,891 total)
 
 ## Intended Use
 
@@ -35,38 +35,37 @@ Six models were trained and evaluated; Random Forest was selected as champion by
 
 | Model | Macro F1 | Accuracy | Weighted F1 | Role |
 |-------|----------|----------|-------------|------|
-| **Random Forest** | **0.9149** | **0.9582** | **0.9577** | Champion |
-| Extra Trees | 0.9062 | 0.9481 | 0.9472 | Ensemble |
-| XGBoost | 0.9043 | 0.9424 | 0.9414 | Primary candidate |
+| **XGBoost** | **0.9298** | **0.9658** | **0.9656** | **Champion** |
+| Random Forest | 0.9146 | 0.9576 | — | Core ensemble |
+| Extra Trees | 0.9070 | 0.9465 | — | Bonus ensemble |
 | Decision Tree | 0.8665 | 0.9323 | 0.9331 | Interpretable |
 | KNN | 0.8162 | 0.9048 | 0.9033 | Distance-based benchmark |
 | Logistic Regression | 0.6391 | 0.6705 | 0.7039 | Baseline |
 
-## Performance by Class (test set)
-
-<!-- Fill in from notebooks/07_final_evaluation.py classification report output -->
-<!-- Run: python notebooks/07_final_evaluation.py and copy the per-class F1 values below -->
+## Performance by Class (test set, XGBoost champion)
 
 | Class | Name | Precision | Recall | F1-Score | Support |
 |-------|------|-----------|--------|----------|---------|
-| 1 | Spruce/Fir | TODO | TODO | TODO | TODO |
-| 2 | Lodgepole Pine | TODO | TODO | TODO | TODO |
-| 3 | Ponderosa Pine | TODO | TODO | TODO | TODO |
-| 4 | Cottonwood/Willow | TODO | TODO | TODO | TODO |
-| 5 | Aspen | TODO | TODO | TODO | TODO |
-| 6 | Douglas-fir | TODO | TODO | TODO | TODO |
-| 7 | Krummholz | TODO | TODO | TODO | TODO |
+| 1 | Spruce/Fir | 0.9524 | 0.9200 | 0.9359 | 6,222 |
+| 2 | Lodgepole Pine | 0.9759 | 0.9840 | 0.9799 | 20,614 |
+| 3 | Ponderosa Pine | 0.9007 | 0.8403 | 0.8695 | 432 |
+| 4 | Cottonwood/Willow | 0.9332 | 0.9699 | 0.9512 | 432 |
+| 5 | Aspen | 0.9250 | 0.9235 | 0.9242 | 614 |
+| 6 | Douglas-fir | 0.8602 | 0.9259 | 0.8919 | 432 |
+| 7 | Krummholz | 0.9338 | 0.9792 | 0.9559 | 432 |
+| — | **macro avg** | **0.9259** | **0.9347** | **0.9298** | 29,178 |
+| — | weighted avg | 0.9657 | 0.9658 | 0.9656 | 29,178 |
 
-## Fairness Analysis (per Wilderness Area)
+## Fairness Analysis (per Wilderness Area, XGBoost champion)
 
-<!-- Fill in from notebooks/07_final_evaluation.py per-wilderness breakdown -->
+| Wilderness Area | Name | Macro F1 | n (test) | Note |
+|----------------|------|----------|----------|------|
+| 1 | Rawah | 0.5355 | 26,861 | Largest area; class imbalance within area drives lower macro F1 |
+| 2 | Neota | 0.3220 | 92 | Very small sample — unreliable estimate |
+| 3 | Comanche Peak | 0.7354 | 1,296 | Moderate performance |
+| 4 | Cache la Poudre | 0.3870 | 929 | Low — dominated by classes with few test samples |
 
-| Wilderness Area | Name | Macro F1 | n (test) |
-|----------------|------|----------|----------|
-| 1 | Rawah | TODO | TODO |
-| 2 | Neota | TODO | TODO |
-| 3 | Comanche Peak | TODO | TODO |
-| 4 | Cache la Poudre | TODO | TODO |
+**Warning:** Per-wilderness macro F1 is substantially lower than overall (0.93) because minority classes (3, 4, 6, 7) are concentrated in specific areas where sample sizes are small. Do not use this model for standalone predictions in Areas 2 and 4.
 
 ## Known Limitations
 
