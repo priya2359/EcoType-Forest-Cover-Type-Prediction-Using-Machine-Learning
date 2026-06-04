@@ -63,7 +63,7 @@ RANDOM_STATE = feature_config['random_state']
 
 # Models that get Optuna tuning (others use config defaults)
 TUNE_MODELS   = {'random_forest', 'extra_trees', 'xgboost'}
-OPTUNA_TRIALS = {'random_forest': 50, 'extra_trees': 50, 'xgboost': 20}
+OPTUNA_TRIALS = {'random_forest': 50, 'extra_trees': 50, 'xgboost': 50}
 
 # FAST_MODE: fewer estimators for non-tuned tree models, fewer Optuna trials
 if FAST_MODE:
@@ -129,6 +129,7 @@ results = {}
 
 for name in MODEL_ORDER:
     print(f"\n{'='*55}\n{name.upper()}\n{'='*55}")
+    elapsed = None   # reset each iteration; set only for non-tuned models
 
     if name in TUNE_MODELS:
         # Optuna TPE: tune on X_train, refit best params on full X_train
@@ -148,7 +149,7 @@ for name in MODEL_ORDER:
     else:
         # Default config params -- no tuning
         model = get_model(name, model_config)
-        model = train_model(model, X_train_scaled, y_train)
+        model, elapsed = train_model(model, X_train_scaled, y_train)
         log_params = model_config['models'].get(name, {})
         cv_f1 = None
 
@@ -173,6 +174,7 @@ for name in MODEL_ORDER:
         params=log_params,
         cm_save_path=cm_path,
         class_map=class_map,
+        training_time_s=elapsed if name not in TUNE_MODELS else None,
     )
 
     cv_str = f"  CV F1={cv_f1:.4f}" if cv_f1 else ""
@@ -185,6 +187,32 @@ for name in MODEL_ORDER:
 comparison_df = build_comparison_df(results)
 print("Final comparison (sorted by macro F1):")
 print(comparison_df[['model', 'macro_f1', 'weighted_f1', 'accuracy']].to_string(index=False))
+
+# Save model summary CSV for Streamlit UI — never hardcode metrics in the app
+from pathlib import Path as _Path
+_ROLE_MAP = {
+    "logistic_regression": "Baseline",
+    "decision_tree": "Interpretable",
+    "knn": "Distance-based benchmark",
+    "random_forest": "Core ensemble",
+    "extra_trees": "Bonus ensemble",
+    "xgboost": "Primary candidate",
+}
+_summary_rows = [
+    {
+        "Model": name.replace("_", " ").title(),
+        "model_key": name,
+        "Macro F1": metrics["macro_f1"],
+        "Accuracy": metrics["accuracy"],
+        "Weighted F1": metrics["weighted_f1"],
+        "Role": _ROLE_MAP.get(name, "Other"),
+    }
+    for name, metrics in results.items()
+]
+_reports_dir = _Path(__file__).parent.parent / "reports"
+_reports_dir.mkdir(parents=True, exist_ok=True)
+pd.DataFrame(_summary_rows).to_csv(_reports_dir / "model_summary.csv", index=False)
+print(f"Saved model summary: {_reports_dir / 'model_summary.csv'}")
 
 plot_model_comparison(
     comparison_df,

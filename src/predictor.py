@@ -16,6 +16,11 @@ from src.feature_engineering import engineer_features
 from src.preprocessing import transform_ohe, transform_scaler
 from src.feature_selector import load_feature_columns
 
+class FeatureEngineeringError(ValueError):
+    """Raised when feature engineering produces invalid values (NaN or Inf)."""
+    pass
+
+
 MODEL_PATH = os.environ.get("MODEL_PATH", "models/best_model/ecotype_best_model.pkl")
 SCALER_PATH = os.environ.get("SCALER_PATH", "models/scalers/standard_scaler.pkl")
 WILDERNESS_OHE_PATH = os.environ.get("WILDERNESS_OHE_PATH", "models/encoders/wilderness_ohe.pkl")
@@ -55,6 +60,10 @@ def preprocess_input(data: dict, artifacts: tuple) -> np.ndarray:
     df = pd.DataFrame([data])
     df = engineer_features(df)
 
+    if df.isnull().any().any():
+        null_cols = df.columns[df.isnull().any()].tolist()
+        raise FeatureEngineeringError(f"NaN after feature engineering: {null_cols}")
+
     # Step 2: OHE (uses get_feature_names_out internally)
     wild_enc = transform_ohe(wilderness_ohe, df["Wilderness_Area"], "Wilderness_Area")
     soil_enc = transform_ohe(soil_ohe, df["Soil_Type"], "Soil_Type")
@@ -78,5 +87,8 @@ def preprocess_input(data: dict, artifacts: tuple) -> np.ndarray:
 
 def predict(model, X: np.ndarray) -> tuple[int, np.ndarray]:
     proba = model.predict_proba(X)[0]
-    class_id = int(model.predict(X)[0])
+    if hasattr(model, 'classes_'):
+        class_id = int(model.classes_[int(np.argmax(proba))])
+    else:
+        class_id = int(model.predict(X)[0])   # safe fallback only
     return class_id, proba

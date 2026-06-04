@@ -4,6 +4,7 @@
 
 import logging
 import os
+import time
 import joblib
 import mlflow
 import yaml
@@ -38,9 +39,12 @@ def get_model(name: str, config: dict):
         raise ValueError(f"Unknown model: {name}")
 
 
-def train_model(model, X_train, y_train):
+def train_model(model, X_train, y_train) -> tuple:
+    t0 = time.perf_counter()
     model.fit(X_train, y_train)
-    return model
+    elapsed = round(time.perf_counter() - t0, 1)
+    logger.info("Trained %s in %.1fs", type(model).__name__, elapsed)
+    return model, elapsed
 
 
 def log_run_to_mlflow(
@@ -50,12 +54,15 @@ def log_run_to_mlflow(
     params: dict,
     cm_save_path: str = None,
     class_map: dict = None,
+    training_time_s: float = None,
 ) -> str:
     with mlflow.start_run(run_name=model_name) as run:
         mlflow.log_params(params)
         mlflow.log_metric("accuracy", metrics["accuracy"])
         mlflow.log_metric("macro_f1", metrics["macro_f1"])
         mlflow.log_metric("weighted_f1", metrics["weighted_f1"])
+        if training_time_s is not None:
+            mlflow.log_metric("training_time_s", training_time_s)
 
         # Per-class F1 scores keyed by numeric class ID
         if class_map and "classification_report" in metrics:

@@ -17,7 +17,7 @@ def select_by_importance(
     threshold: float = 0.0005,
     n_estimators: int = 100,
     random_state: int = 42,
-) -> list[str]:
+) -> tuple[list[str], pd.Series]:
     rf = RandomForestClassifier(
         n_estimators=n_estimators,
         class_weight="balanced",

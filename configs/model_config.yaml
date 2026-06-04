@@ -2,12 +2,12 @@ models:
   random_forest:
     n_estimators: 200
     class_weight: balanced
-    n_jobs: -1
+    n_jobs: -1   # parallel — fast but ±0.001 F1 variance between runs (thread scheduling)
     random_state: 42
   extra_trees:
     n_estimators: 200
     class_weight: balanced
-    n_jobs: -1
+    n_jobs: -1   # parallel — fast but ±0.001 F1 variance between runs (thread scheduling)
     random_state: 42
   xgboost:
     n_estimators: 300
@@ -33,6 +33,13 @@ models:
     solver: lbfgs
     random_state: 42
     # Baseline only - do not tune
+
+optuna:
+  trials:
+    random_forest: 50
+    extra_trees: 50
+    xgboost: 50    # was 20 — increased to match RF/ET; XGB has larger search space
+  cv_folds: 5      # was 3 — 5-fold more stable on 145K rows (~67% more compute per trial)
 
 primary_metric: macro_f1
 

@@ -22,6 +22,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+        request.state.request_id = request_id   # store for downstream routes
         start = time.perf_counter()
 
         try:

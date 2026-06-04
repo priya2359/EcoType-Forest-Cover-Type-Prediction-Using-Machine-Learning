@@ -31,17 +31,20 @@ def load_csv(path: str) -> pd.DataFrame:
 # ── Model comparison table ────────────────────────────────────────────────────
 st.subheader("All Models -- Test Set Performance")
 
-# TODO: read these metrics dynamically from reports/optuna/*.csv or MLflow
-baseline_data = {
-    "Model":        ["Logistic Regression", "Decision Tree", "KNN",
-                     "Random Forest", "Extra Trees", "XGBoost"],
-    "Macro F1":     [0.6391, 0.8665, 0.8162, 0.9149, 0.9062, 0.9043],
-    "Accuracy":     [0.6705, 0.9323, 0.9048, 0.9582, 0.9481, 0.9424],
-    "Weighted F1":  [0.7039, 0.9331, 0.9033, 0.9577, 0.9472, 0.9414],
-    "Role":         ["Baseline", "Interpretable", "Distance-based benchmark",
-                     "Core ensemble", "Bonus ensemble", "Primary candidate"],
-}
-df_base = pd.DataFrame(baseline_data).sort_values("Macro F1", ascending=False).reset_index(drop=True)
+SUMMARY_PATH = Path(__file__).resolve().parent.parent.parent / "reports" / "model_summary.csv"
+
+if SUMMARY_PATH.exists():
+    df_base = pd.read_csv(SUMMARY_PATH)
+    required_cols = {"Model", "Macro F1", "Accuracy", "Weighted F1"}
+    missing_cols = required_cols - set(df_base.columns)
+    if missing_cols:
+        st.error(f"model_summary.csv missing columns: {missing_cols}. Re-run notebook 06.")
+        st.stop()
+    df_base = df_base.sort_values("Macro F1", ascending=False).reset_index(drop=True)
+else:
+    st.warning("model_summary.csv not found. Run notebooks/06_model_building.py to generate it.")
+    st.stop()
+
 st.dataframe(df_base.style.highlight_max(subset=["Macro F1", "Accuracy", "Weighted F1"],
                                           color="#c8e6c9"), use_container_width=True)
 

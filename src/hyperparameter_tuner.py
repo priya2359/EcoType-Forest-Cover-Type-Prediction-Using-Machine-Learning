@@ -4,13 +4,26 @@
 
 import logging
 import os
+import yaml
 import optuna
 import numpy as np
 import pandas as pd
+from functools import lru_cache as _lru_cache
+from pathlib import Path
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 
 from src.xgb_wrapper import XGBWrapper
+
+
+@_lru_cache(maxsize=1)
+def _get_cv_folds() -> int:
+    config_path = Path(__file__).parent.parent / "configs" / "model_config.yaml"
+    try:
+        with open(config_path) as f:
+            return yaml.safe_load(f).get("optuna", {}).get("cv_folds", 3)
+    except Exception:
+        return 3
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +106,7 @@ def tune_model(
         raise ValueError(f"No Optuna objective for: {model_name}")
 
     actual_trials = max(5, n_trials // 5) if fast_mode else n_trials
-    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=random_state)
+    cv = StratifiedKFold(n_splits=_get_cv_folds(), shuffle=True, random_state=random_state)
 
     objective_fn = _OBJECTIVES[model_name]
 

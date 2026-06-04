@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, main]
   pull_request:
-    branches: [master]
+    branches: [master, main]
 
 jobs:
   test:
@@ -41,5 +41,5 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
           MODEL_VERSION: "1.0.0"
-        run: pytest tests/test_api.py tests/test_preprocessing.py -v --tb=short
+        run: pytest tests/test_api.py tests/test_preprocessing.py tests/test_feature_engineering.py -v --tb=short
         # test_model.py auto-skips in CI via @requires_model (PKLs not in repo)

@@ -4,23 +4,48 @@
 
 import os
 import logging
+import json as _json
+import traceback as _traceback
 import yaml
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 # CRITICAL: import XGBWrapper BEFORE any joblib.load()
 from src.xgb_wrapper import XGBWrapper  # noqa
 
-from src.predictor import load_artifacts
-from api.limiter import limiter           # single instance — no circular import
+from src.predictor import load_artifacts, FeatureEngineeringError
+from api.limiter import limiter
 from api.routes import health, predict
 from api.middleware.logging_middleware import LoggingMiddleware
 
-logging.basicConfig(level=logging.INFO)
+
+class _JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        log_dict = {
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "ts": datetime.now(timezone.utc).isoformat(),
+        }
+        if record.exc_info:
+            log_dict["exception"] = _traceback.format_exception(*record.exc_info)
+        return _json.dumps(log_dict)
+
+
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+_handler = logging.StreamHandler()
+_handler.setFormatter(_JsonFormatter())
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    handlers=[_handler],
+    force=True,
+)
 PORT = int(os.environ.get("PORT", 8000))
 
 
@@ -56,6 +81,11 @@ app = FastAPI(
     description="Forest Cover Type Prediction — 12-field input, 7-class output",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(FeatureEngineeringError)
+async def fe_error_handler(request: Request, exc: FeatureEngineeringError):
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 # Rate limiting — single instance shared with routes
 app.state.limiter = limiter
